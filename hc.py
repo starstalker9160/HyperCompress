@@ -59,3 +59,52 @@ class HyperCompress:
                 result.append(blob[i:i+length])
                 i += length
         return result
+
+
+
+
+# HC File Handling
+class HCFile:
+    def __init__(self, path, mode):
+        if 'b' not in mode:
+            mode += 'b'
+        self.file = open(path, mode)
+        self.closed = False
+
+    def hc_write(self, blob: bytes):
+        self.file.write(len(blob).to_bytes(4, 'big'))
+        self.file.write(blob)
+
+    def hc_read(self):
+        size_bytes = self.file.read(4)
+        if not size_bytes:
+            return None
+        size = int.from_bytes(size_bytes, 'big')
+        return self.file.read(size)
+
+    def hc_append(self, blob: bytes):
+        self.file.seek(0, 2)
+        self.hc_write(blob)
+
+    def close(self):
+        if not self.closed:
+            self.file.close()
+            self.closed = True
+
+
+
+# Exposed API functions
+def hc_open(path, mode='rb'):
+    return HCFile(path, mode)
+
+def hc_close(hcfile):
+    hcfile.close()
+
+def hc_read(hcfile):
+    return hcfile.hc_read()
+
+def hc_write(hcfile, blob: bytes):
+    hcfile.hc_write(blob)
+
+def hc_append(hcfile, blob: bytes):
+    hcfile.hc_append(blob)
