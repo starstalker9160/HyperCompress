@@ -28,9 +28,13 @@ class HyperCompress:
                 out += b'b' + (b'\x01' if i else b'\x00')
         return out
 
-    def decode(self, blob):
+    def decode(self, blob = None):
         result = []
         i = 0
+
+        if not blob:
+            blob = self.value
+
         while i < len(blob):
             type_code = blob[i:i+1]
             i += 1
