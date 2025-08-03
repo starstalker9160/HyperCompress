@@ -1,3 +1,5 @@
+import struct
+
 class HyperCompress:
     def __init__(self):
         self.acceptableTypes = []
@@ -28,8 +30,9 @@ class HyperCompress:
                 out += b'b' + (b'\x01' if i else b'\x00')
         return out
 
+    @staticmethod
     def decode(self, blob = None):
-        result = []
+        out = []
         i = 0
 
         if not blob:
@@ -42,16 +45,20 @@ class HyperCompress:
             # the sam fuck of all if-else statements
             # maybe the real upgrade is a switch-case? (please god no)
             if type_code == b'i':
-                result.append(int.from_bytes(blob[i:i+4], 'big', signed=True))
+                out.append(int.from_bytes(blob[i:i+4], 'big', signed=True))
                 i += 4
+            elif type_code == b'f':
+                out.append(struct.unpack('>d', blob[i:i+8])[0])
+                i += 8
             elif type_code == b's':
                 length = int.from_bytes(blob[i:i+2], 'big')
                 i += 2
-                result.append(blob[i:i+length].decode('utf-8'))
+                out.append(blob[i:i+length].decode('utf-8'))
                 i += length
             elif type_code == b'b':
-                result.append(blob[i:i+1] == b'\x01')
+                out.append(blob[i:i+1] == b'\x01')
                 i += 1
             else:
-                raise ValueError("Unknown type prefix")
-        return result
+                raise ValueError(f"Unknown type prefix: {type_code}")
+
+        return out
