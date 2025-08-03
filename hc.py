@@ -2,13 +2,17 @@ import struct
 
 class HyperCompress:
     def __init__(self):
+        # positional schema
         self.acceptableTypes = []
-        # yes yes, i know, this list isn't very binary format of me but ill change it pinky promise
         self._values = []
 
     def add(self, val):
-        if type(val) not in self.acceptableTypes:
-            raise TypeError(f"{type(val).__name__} not accepted")
+        if len(self._values) >= len(self.acceptableTypes):
+            print(self._values, "\n", self.acceptableTypes, "\n")
+            raise IndexError("Too many values for schema")
+        expected_type = self.acceptableTypes[len(self._values)]
+        if not isinstance(val, expected_type):
+            raise TypeError(f"Expected {expected_type.__name__}, got {type(val).__name__}")
         self._values.append(val)
 
     @property
@@ -16,49 +20,42 @@ class HyperCompress:
         return self._encode()
 
     def _encode(self):
-        # using 'type headers + compressed' format
-        # temporarily ofcourse
-        # surely ill change to something better right?
-        out = b''
-        for i in self._values:
-            if isinstance(i, int):
-                out += b'i' + i.to_bytes(4, 'big', signed=True)
-            elif isinstance(i, str):
-                encoded = i.encode('utf-8')
-                out += b's' + len(encoded).to_bytes(2, 'big') + encoded
-            elif isinstance(i, bool):
-                out += b'b' + (b'\x01' if i else b'\x00')
-        return out
+        out = bytearray()
+        for val, typ in zip(self._values, self.acceptableTypes):
+            if typ is int:
+                out += val.to_bytes(4, 'big', signed=True)
+            elif typ is float:
+                out += struct.pack('>d', val)
+            elif typ is bool:
+                out += b'\x01' if val else b'\x00'
+            elif typ is str:
+                encoded = val.encode('utf-8')
+                out += len(encoded).to_bytes(2, 'big') + encoded
+            elif typ is bytes:
+                out += len(val).to_bytes(4, 'big') + val
+        return bytes(out)
 
-    @staticmethod
-    def decode(self, blob = None):
-        out = []
+    def decode(self, blob):
+        result = []
         i = 0
-
-        if not blob:
-            blob = self.value
-
-        while i < len(blob):
-            type_code = blob[i:i+1]
-            i += 1
-            # i have a strong feeling this is gonna go horribly
-            # the sam fuck of all if-else statements
-            # maybe the real upgrade is a switch-case? (please god no)
-            if type_code == b'i':
-                out.append(int.from_bytes(blob[i:i+4], 'big', signed=True))
+        for t in self.acceptableTypes:
+            if t is int:
+                result.append(int.from_bytes(blob[i:i+4], 'big', signed=True))
                 i += 4
-            elif type_code == b'f':
-                out.append(struct.unpack('>d', blob[i:i+8])[0])
+            elif t is float:
+                result.append(struct.unpack('>d', blob[i:i+8])[0])
                 i += 8
-            elif type_code == b's':
+            elif t is bool:
+                result.append(blob[i] == 1)
+                i += 1
+            elif t is str:
                 length = int.from_bytes(blob[i:i+2], 'big')
                 i += 2
-                out.append(blob[i:i+length].decode('utf-8'))
+                result.append(blob[i:i+length].decode('utf-8'))
                 i += length
-            elif type_code == b'b':
-                out.append(blob[i:i+1] == b'\x01')
-                i += 1
-            else:
-                raise ValueError(f"Unknown type prefix: {type_code}")
-
-        return out
+            elif t is bytes:
+                length = int.from_bytes(blob[i:i+4], 'big')
+                i += 4
+                result.append(blob[i:i+length])
+                i += length
+        return result
